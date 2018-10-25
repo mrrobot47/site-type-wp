@@ -271,7 +271,8 @@ class WordPress extends EE_Site_Command {
 	 */
 	private function enable_object_cache() {
 		$redis_plugin_constant    = 'docker-compose exec --user=\'www-data\' php wp config set --type=variable redis_server "array(\'host\'=> \'ee-global-redis\',\'port\'=> 6379,)" --raw';
-		$activate_wp_redis_plugin = "docker-compose exec --user='www-data' php wp plugin install wp-redis --activate";
+		$maybe_network_activate = ('wp'===$this->site_data['app_sub_type']) ? '--activate' : '--activate-network';
+		$activate_wp_redis_plugin = "docker-compose exec --user='www-data' php wp plugin install wp-redis $maybe_network_activate";
 		$enable_redis_cache       = "docker-compose exec --user='www-data' php wp redis enable";
 
 		$this->docker_compose_exec( $redis_plugin_constant, 'Unable to download or activate wp-redis plugin.' );
@@ -283,7 +284,7 @@ class WordPress extends EE_Site_Command {
 	 * Enable page cache.
 	 */
 	private function enable_page_cache() {
-		$activate_nginx_helper = 'docker-compose exec --user=\'www-data\' php wp plugin install nginx-helper --activate';
+		$activate_nginx_helper = 'git clone -b v2-master https://github.com/rtCamp/nginx-helper.git app/htdocs/wp-content/plugins/nginx-helper';
 		$nginx_helper_fail_msg = 'Unable to download or activate nginx-helper plugin properly.';
 		$salt_value            = $this->site_data['site_url'] . ':';
 
@@ -324,13 +325,17 @@ class WordPress extends EE_Site_Command {
 		$add_cache_key_salt    = "docker-compose exec --user='www-data' php wp config set WP_CACHE_KEY_SALT $salt_value --add=true --type=constant";
 		$add_redis_maxttl      = "docker-compose exec --user='www-data' php wp config set WP_REDIS_MAXTTL 14400 --add=true --type=constant";
 		$add_plugin_data       = "docker-compose exec --user='www-data' php wp $wp_cli_params rt_wp_nginx_helper_options '$plugin_data' --format=json";
+		$add_plugin_data       = "docker-compose exec --user='www-data' php wp $wp_cli_params rt_wp_nginx_helper_options '$plugin_data' --format=json";
+		$maybe_network_activate = ('wp'===$this->site_data['app_sub_type']) ? '' : '--network';
+		$final_activate       = "docker-compose exec --user='www-data' php wp plugin activate nginx-helper $maybe_network_activate";
 
 		$this->docker_compose_exec( $add_hostname_constant, $nginx_helper_fail_msg );
 		$this->docker_compose_exec( $add_port_constant, $nginx_helper_fail_msg );
 		$this->docker_compose_exec( $add_prefix_constant, $nginx_helper_fail_msg );
 		$this->docker_compose_exec( $add_cache_key_salt, $nginx_helper_fail_msg );
-		$this->docker_compose_exec( $activate_nginx_helper, $nginx_helper_fail_msg );
 		$this->docker_compose_exec( $add_plugin_data, $nginx_helper_fail_msg );
+		$this->docker_compose_exec( $activate_nginx_helper, $nginx_helper_fail_msg );
+		$this->docker_compose_exec( $final_activate, $nginx_helper_fail_msg );
 		$this->docker_compose_exec( $add_redis_maxttl, $nginx_helper_fail_msg );
 	}
 
