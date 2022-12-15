@@ -1,0 +1,4 @@
+upstream redis {
+	server {{cache_host}}:6379;
+	keepalive 10;
+}

@@ -497,7 +497,7 @@ class WordPress extends EE_Site_Command {
 		\EE_DOCKER::docker_compose_exec( "wp config set WP_CACHE_KEY_SALT $obj_cache_key_prefix --add=true --type=constant", 'php', 'bash', 'www-data' );
 		\EE_DOCKER::docker_compose_exec( "wp config set WP_REDIS_MAXTTL 14400 --add=true --type=constant", 'php', 'bash', 'www-data' );
 		\EE_DOCKER::docker_compose_exec( "wp $wp_cli_params rt_wp_nginx_helper_options '$plugin_data' --format=json", 'php', 'bash', 'www-data' );
- 
+
 	}
 
 	/**
@@ -605,6 +605,10 @@ class WordPress extends EE_Site_Command {
 		$custom_conf_source      = SITE_WP_TEMPLATE_ROOT . '/config/nginx/user.conf.mustache';
 		$admin_tools_conf_dest   = $site_conf_dir . '/nginx/custom/admin-tools.conf';
 		$admin_tools_conf_source = SITE_WP_TEMPLATE_ROOT . '/config/nginx/admin-tools.conf.mustache';
+		$redis_conf_dest         = $site_conf_dir . '/nginx/conf.d/redis.conf';
+		$redis_conf_source       = SITE_WP_TEMPLATE_ROOT . '/config/nginx/redis.conf.mustache';
+		$upstream_conf_dest      = $site_conf_dir . '/nginx/conf.d/upstream.conf';
+		$upstream_conf_source    = SITE_WP_TEMPLATE_ROOT . '/config/nginx/upstream.conf.mustache';
 		$process_user            = posix_getpwuid( posix_geteuid() );
 
 		\EE::log( 'Creating WordPress site ' . $this->site_data['site_url'] );
@@ -635,6 +639,18 @@ class WordPress extends EE_Site_Command {
 		$env_content     = \EE\Utils\mustache_render( SITE_WP_TEMPLATE_ROOT . '/config/.env.mustache', $env_data );
 		$php_ini_content = file_get_contents( SITE_WP_TEMPLATE_ROOT . '/config/php-fpm/' . $custom_ini );
 
+		$skip               = $this->cache_type ? 0 : 1;
+		$redis_data         = [
+			'skip' => $skip,
+		];
+		$redis_conf_content = \EE\Utils\mustache_render( $redis_conf_source, $redis_data );
+
+		$cache_host = empty( $this->site_data['cache_host'] ) ? 'global-redis' : $this->site_data['cache_host'];
+		$upstream_data = [
+			'cache_host' => $cache_host,
+		];
+		$upstream_conf_content = \EE\Utils\mustache_render( $upstream_conf_source, $upstream_data );
+
 		try {
 			$this->dump_docker_compose_yml( [ 'nohttps' => true ] );
 			$this->fs->dumpFile( $site_conf_env, $env_content );
@@ -647,6 +663,9 @@ class WordPress extends EE_Site_Command {
 			$this->fs->copy( $admin_tools_conf_source, $admin_tools_conf_dest );
 			$this->fs->remove( $this->site_data['site_fs_path'] . '/app/html' );
 			$this->fs->dumpFile( $site_php_ini, $php_ini_content );
+			$this->fs->dumpFile( $redis_conf_dest, $redis_conf_content );
+			$this->fs->dumpFile( $upstream_conf_dest, $upstream_conf_content );
+
 			if ( IS_DARWIN ) {
 				if ( 'db' === $this->site_data['db_host'] ) {
 					$db_conf_file = $this->site_data['site_fs_path'] . '/services/mariadb/conf/my.cnf';
@@ -829,10 +848,7 @@ class WordPress extends EE_Site_Command {
 		$default_conf_data['site_type']             = $site_type;
 		$default_conf_data['site_url']              = $this->site_data['site_url'];
 		$default_conf_data['server_name']           = $server_name;
-		$default_conf_data['include_php_conf']      = ! $cache_type;
 		$default_conf_data['include_wpsubdir_conf'] = $site_type === 'subdir';
-		$default_conf_data['include_redis_conf']    = $cache_type;
-		$default_conf_data['cache_host']            = $this->site_data['cache_host'];
 		$default_conf_data['document_root']         = $this->site_data['site_container_fs_path'];
 
 		return \EE\Utils\mustache_render( SITE_WP_TEMPLATE_ROOT . '/config/nginx/main.conf.mustache', $default_conf_data );
@@ -1392,6 +1408,7 @@ class WordPress extends EE_Site_Command {
 			'php_version'            => $this->site_data['php_version'],
 			'created_on'             => date( 'Y-m-d H:i:s', time() ),
 			'site_container_fs_path' => rtrim( $this->site_data['site_container_fs_path'], '/' ),
+			'ee_version'             => EE_VERSION,
 		];
 
 		if ( ! $this->skip_install ) {
