@@ -1439,7 +1439,7 @@ class WordPress extends EE_Site_Command {
 
 		EE::log( 'Running search-replace.' );
 		EE::log( 'Taking database backup before search-replace.' );
-		EE::exec( sprintf( \EE_DOCKER::docker_compose_with_custom() . ' exec php wp db export %s.db', $this->site_data['site_url'] ) );
+		EE::exec( sprintf( \EE_DOCKER::docker_compose_with_custom() . ' exec php wp db export --skip-ssl %s.db', $this->site_data['site_url'] ) );
 
 		$db_file         = $this->site_data['site_fs_path'] . '/app/htdocs/' . $this->site_data['site_url'] . '.db';
 		$backup_location = EE_BACKUP_DIR . '/' . $this->site_data['site_url'] . '/' . $this->site_data['site_url'] . '.db';
