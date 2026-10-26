@@ -1553,7 +1553,8 @@ class FeatureContext implements Context
 
 		$this->response = [
 			'url'     => $url,
-			'code'    => $code,
+			// Incomplete transfers fail even when a status and headers were received.
+			'code'    => false === $raw ? 0 : $code,
 			'headers' => false === $raw ? "(request failed: $error)" : substr( $raw, 0, $header_size ),
 			'body'    => false === $raw ? '' : (string) substr( $raw, $header_size ),
 		];
