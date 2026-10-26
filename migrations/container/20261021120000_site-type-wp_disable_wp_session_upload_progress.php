@@ -283,8 +283,8 @@ class DisableWpSessionUploadProgress extends Base {
 		try {
 			self::write_custom_ini( $file, $conf_dir, $new_content, $content );
 		} catch ( \Exception $e ) {
-			$this->fs->remove( dirname( $backup ) );
-			EE::warning( "Could not disable session.upload_progress for $site->site_url: {$e->getMessage()}. $manual" );
+			// Kept: if putting the old content back failed too, it is the only copy.
+			EE::warning( "Could not disable session.upload_progress for $site->site_url: {$e->getMessage()}. The original custom.ini is $backup. $manual" );
 
 			return;
 		}
@@ -399,8 +399,8 @@ class DisableWpSessionUploadProgress extends Base {
 		$written = @file_put_contents( $file, $content );
 		clearstatcache( true, $file );
 		if ( strlen( $content ) !== $written || @file_get_contents( $file ) !== $content ) {
-			@file_put_contents( $file, $current );
-			throw new \Exception( 'could not write custom.ini' );
+			$restored = strlen( $current ) === @file_put_contents( $file, $current );
+			throw new \Exception( 'could not write custom.ini' . ( $restored ? '' : ', nor put the old content back' ) );
 		}
 	}
 
