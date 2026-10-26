@@ -141,11 +141,13 @@ write_front_config() {
 }
 
 wait_for() {
-	# $1 = description, rest = command; up to 60 s.
-	local what=$1 i
+	# $1 = description, rest = command; up to 60 s of wall-clock time, each attempt bounded by what is left.
+	local what=$1 end=$((SECONDS + 60)) left
 	shift
-	for ((i = 0; i < 60; i++)); do
-		"$@" >/dev/null 2>&1 && return 0
+	while ((SECONDS < end)); do
+		# timeout 0 would mean no limit.
+		left=$((end - SECONDS))
+		timeout -k 5 $((left > 0 ? left : 1)) "$@" >/dev/null 2>&1 && return 0
 		sleep 1
 	done
 	die "timed out waiting for $what"
