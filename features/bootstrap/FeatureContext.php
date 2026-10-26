@@ -1416,6 +1416,10 @@ class FeatureContext implements Context
 	}
 
 	private function site_row( $site ) {
+		// Before core's first non-cli command there is no DB (and so no site); opening it would create an empty one.
+		if ( ! is_file( EE_ROOT_DIR . '/db/ee.sqlite' ) ) {
+			return false;
+		}
 		$statement = $this->ee_db()->prepare( 'SELECT * FROM sites WHERE site_url = ?' );
 		$statement->execute( [ $site ] );
 
