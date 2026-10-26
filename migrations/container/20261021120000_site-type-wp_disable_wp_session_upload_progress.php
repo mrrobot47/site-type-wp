@@ -406,7 +406,13 @@ class DisableWpSessionUploadProgress extends Base {
 		$written = @file_put_contents( $file, $content );
 		clearstatcache( true, $file );
 		if ( strlen( $content ) !== $written || @file_get_contents( $file ) !== $content ) {
-			$restored = strlen( $current ) === @file_put_contents( $file, $current );
+			// Checked again: the path may have been swapped since the write.
+			try {
+				self::check_custom_ini_path( $file, $dir );
+				$restored = strlen( $current ) === @file_put_contents( $file, $current );
+			} catch ( \Exception $e ) {
+				$restored = false;
+			}
 			throw new \Exception( 'could not write custom.ini' . ( $restored ? '' : ', nor put the old content back' ) );
 		}
 	}
