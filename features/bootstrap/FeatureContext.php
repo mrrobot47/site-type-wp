@@ -1615,8 +1615,9 @@ class FeatureContext implements Context
 	private static function cleanup_test_artifacts() {
 		$ee = escapeshellarg( realpath( EE_ROOT ) . '/bin/ee' );
 
-		$pdo   = new PDO( 'sqlite:' . EE_ROOT_DIR . '/db/ee.sqlite' );
-		$sites = $pdo->query( 'SELECT site_url FROM sites' )->fetchAll( PDO::FETCH_COLUMN );
+		// Core creates the DB on its first non-cli command; opening a missing SQLite file would create an empty one without the sites table.
+		$db    = EE_ROOT_DIR . '/db/ee.sqlite';
+		$sites = is_file( $db ) ? ( new PDO( 'sqlite:' . $db ) )->query( 'SELECT site_url FROM sites' )->fetchAll( PDO::FETCH_COLUMN ) : [];
 		foreach ( $sites as $site ) {
 			if ( false !== strpos( $site, self::TEST_PREFIX ) ) {
 				// --foreground: in a background process group the `docker exec -it` of a cache purge stops on SIGTTOU (with timeout itself) and hangs forever.
