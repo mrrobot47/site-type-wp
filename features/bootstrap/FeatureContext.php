@@ -543,7 +543,8 @@ class FeatureContext implements Context
 		$command  = $this->replace_placeholders( $command );
 		$deadline = time() + (int) $seconds;
 		do {
-			$result = EE::launch( $command, false, true );
+			// Each attempt gets only the time left, so a stalled command can't outlast the deadline.
+			$result = EE::launch( sprintf( 'timeout -k 5 %d sh -c %s', max( 1, $deadline - time() ), escapeshellarg( $command ) ), false, true );
 			if ( 0 === $result->return_code ) {
 				return;
 			}
