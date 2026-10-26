@@ -264,6 +264,13 @@ class DisableWpSessionUploadProgress extends Base {
 			return;
 		}
 
+		// Rollback reads the file back with the same limit.
+		if ( strlen( $new_content ) > self::MAX_SIZE ) {
+			EE::warning( "Skipped disabling session.upload_progress for $site->site_url: custom.ini would be larger than " . self::MAX_SIZE . " bytes. $manual" );
+
+			return;
+		}
+
 		$backup = $this->backup_root . '/' . $site->site_url . '/custom.ini';
 		try {
 			$stat = @lstat( $file );
